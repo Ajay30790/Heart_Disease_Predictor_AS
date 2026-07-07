@@ -96,7 +96,7 @@ def load_model():
     """Load the saved model and preprocessing objects"""
     try:
         model_dir = 'model_outputs/models'
-        
+
         # Check if model files exist
         required_files = ['best_model.pkl', 'scaler.pkl', 'imputer.pkl', 'feature_names.pkl']
         for file in required_files:
@@ -104,15 +104,15 @@ def load_model():
                 st.error(f"❌ Model file not found: {file}")
                 st.info("Please train the model first using the Jupyter notebook.")
                 return None, None, None, None
-        
+
         # Load model files
         model = joblib.load(os.path.join(model_dir, 'best_model.pkl'))
         scaler = joblib.load(os.path.join(model_dir, 'scaler.pkl'))
         imputer = joblib.load(os.path.join(model_dir, 'imputer.pkl'))
         features = joblib.load(os.path.join(model_dir, 'feature_names.pkl'))
-        
+
         return model, scaler, imputer, features
-    
+
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
         st.info("Please ensure the model is trained and saved in 'model_outputs/models/'")
@@ -132,16 +132,47 @@ def load_model_summary():
 
 model_summary = load_model_summary()
 
+
+def get_expected_columns(transformer, fallback):
+    """
+    Return the list of column names a fitted sklearn object actually expects.
+
+    Different pipeline stages (imputer / scaler / model) can end up fit on
+    slightly different feature sets (e.g. engineered features added only
+    after imputation). Rather than assuming feature_names.pkl applies
+    uniformly to every stage, we ask each object what it was actually fit
+    on via `feature_names_in_` (available on fitted sklearn transformers/
+    estimators when they were fit on a DataFrame), and only fall back to
+    the saved feature_names.pkl list if that attribute isn't present.
+    """
+    cols = getattr(transformer, 'feature_names_in_', None)
+    if cols is not None:
+        return list(cols)
+    return list(fallback)
+
+
+def align_columns(df, expected_cols):
+    """Return a DataFrame with exactly `expected_cols`, in that order,
+    filling any missing column with 0."""
+    aligned = pd.DataFrame(index=df.index)
+    for col in expected_cols:
+        if col in df.columns:
+            aligned[col] = df[col].values
+        else:
+            aligned[col] = 0
+    return aligned
+
+
 # Sidebar
 with st.sidebar:
     st.header("📊 Model Information")
-    
+
     if model_summary:
         st.info(f"**Best Model:** {model_summary.get('best_model', 'N/A')}")
         st.info(f"**Accuracy:** {model_summary.get('test_accuracy', 0):.2%}")
         st.info(f"**ROC-AUC:** {model_summary.get('test_roc_auc', 0):.2%}")
         st.info(f"**Features Used:** {model_summary.get('n_features', 0)}")
-    
+
     st.markdown("---")
     st.header("📋 Instructions")
     st.markdown("""
@@ -149,29 +180,29 @@ with st.sidebar:
     2. Click **Predict Risk** button
     3. View the risk assessment
     4. Review feature contribution
-    
+
     ⚠️ **Note:** This is a prediction tool. Always consult with healthcare professionals.
     """)
-    
+
     st.markdown("---")
-    
+
     # Assignment Information
     st.header("🎓 IIT Jammu Assignment")
     st.markdown("""
-    **Course:** Machine Learning  
-    **Week:** 3  
-    **Topic:** Heart Disease Prediction  
-    **Dataset:** Framingham Heart Study  
+    **Course:** Machine Learning
+    **Week:** 3
+    **Topic:** Heart Disease Prediction
+    **Dataset:** Framingham Heart Study
     **Model:** Ensemble Learning
     """)
-    
+
     st.markdown("---")
-    
+
     # Social Links
     st.header("🔗 Connect With Me")
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.markdown("""
         <a href="https://github.com/yourusername" target="_blank" style="text-decoration: none;">
@@ -180,7 +211,7 @@ with st.sidebar:
             </div>
         </a>
         """, unsafe_allow_html=True)
-    
+
     with col2:
         st.markdown("""
         <a href="https://linkedin.com/in/yourusername" target="_blank" style="text-decoration: none;">
@@ -189,9 +220,9 @@ with st.sidebar:
             </div>
         </a>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("---")
-    
+
     # Health tips
     tips = [
         "💡 Maintain a healthy weight to reduce heart disease risk",
@@ -204,7 +235,7 @@ with st.sidebar:
     ]
     st.markdown("💡 **Health Tip:**")
     st.info(np.random.choice(tips))
-    
+
     st.markdown("---")
     st.caption("Made with ❤️ for IIT Jammu Assignment")
 
@@ -220,61 +251,61 @@ if 'probability' not in st.session_state:
 # Input tab
 with tab1:
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         st.subheader("👤 Personal Information")
-        
+
         male = st.selectbox("Gender", ["Female", "Male"], help="Select gender")
         male_val = 1 if male == "Male" else 0
-        
+
         age = st.slider("Age (years)", 20, 80, 50, help="Age in years")
-        
+
         education = st.selectbox(
             "Education Level",
             ["1 - Less than high school", "2 - High school", "3 - Some college", "4 - College"],
             help="Education level"
         )
         education_val = int(education.split(" - ")[0])
-        
+
         currentSmoker = st.selectbox("Current Smoker", ["No", "Yes"])
         currentSmoker_val = 1 if currentSmoker == "Yes" else 0
-        
+
         cigsPerDay = st.number_input("Cigarettes per Day", 0, 80, 0, help="Number of cigarettes smoked daily")
-        
+
         BPMeds = st.selectbox("Blood Pressure Medication", ["No", "Yes"])
         BPMeds_val = 1 if BPMeds == "Yes" else 0
-    
+
     with col2:
         st.subheader("🩺 Medical History")
-        
+
         prevalentStroke = st.selectbox("History of Stroke", ["No", "Yes"])
         prevalentStroke_val = 1 if prevalentStroke == "Yes" else 0
-        
+
         prevalentHyp = st.selectbox("History of Hypertension", ["No", "Yes"])
         prevalentHyp_val = 1 if prevalentHyp == "Yes" else 0
-        
+
         diabetes = st.selectbox("Diabetes", ["No", "Yes"])
         diabetes_val = 1 if diabetes == "Yes" else 0
-        
+
         totChol = st.number_input("Total Cholesterol (mg/dL)", 100, 600, 220, help="Normal: < 200 mg/dL")
-        
+
         glucose = st.number_input("Glucose Level (mg/dL)", 40, 400, 90, help="Normal: < 100 mg/dL")
-    
+
     with col3:
         st.subheader("💓 Vital Signs")
-        
+
         sysBP = st.number_input("Systolic BP (mmHg)", 80, 300, 120, help="Normal: < 120 mmHg")
-        
+
         diaBP = st.number_input("Diastolic BP (mmHg)", 50, 200, 80, help="Normal: < 80 mmHg")
-        
+
         BMI = st.number_input("BMI (kg/m²)", 15, 60, 25, help="Normal: 18.5 - 24.9")
-        
+
         heartRate = st.number_input("Heart Rate (bpm)", 40, 150, 75, help="Normal: 60 - 100 bpm")
-    
+
     # Prediction button
     st.markdown("---")
     col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-    
+
     with col_btn2:
         predict_button = st.button("🔬 Predict Heart Disease Risk", type="primary", use_container_width=True)
 
@@ -302,56 +333,65 @@ if predict_button:
                 'heartRate': [heartRate],
                 'glucose': [glucose]
             })
-            
-            # Step 2: Add derived features
+
+            # Step 2: Add derived features (only used where a downstream
+            # stage actually expects them - see alignment logic below)
             input_data['age_squared'] = input_data['age'] ** 2
             input_data['bmi_age'] = input_data['BMI'] * input_data['age']
             input_data['bp_ratio'] = input_data['sysBP'] / input_data['diaBP']
             input_data['cholesterol_bp'] = input_data['totChol'] * input_data['sysBP']
-            
-            # Step 3: Ensure all features are present and in correct order
-            # Get the expected feature order from the loaded feature names
-            expected_features = features  # This is the list from feature_names.pkl
-            
-            # Create a new DataFrame with the correct feature order
-            input_final = pd.DataFrame()
-            for feature in expected_features:
-                if feature in input_data.columns:
-                    input_final[feature] = input_data[feature].values
-                else:
-                    # If any feature is missing, add it with 0
-                    input_final[feature] = 0
-            
-            # Step 4: Impute missing values (if any)
-            input_imputed = imputer.transform(input_final)
-            input_imputed_df = pd.DataFrame(input_imputed, columns=expected_features)
-            
-            # Step 5: Scale features
-            input_scaled = scaler.transform(input_imputed_df)
-            input_scaled_df = pd.DataFrame(input_scaled, columns=expected_features)
-            
+
+            # Step 3: Align to whatever columns the IMPUTER was actually
+            # fit on (not blindly to feature_names.pkl, since that file
+            # can include engineered features the imputer never saw).
+            imputer_cols = get_expected_columns(imputer, features)
+            input_for_imputer = align_columns(input_data, imputer_cols)
+
+            input_imputed = imputer.transform(input_for_imputer)
+            input_imputed_df = pd.DataFrame(input_imputed, columns=imputer_cols)
+
+            # Step 4: Align to whatever columns the SCALER expects. If the
+            # scaler was fit after engineered features were added, pull
+            # those values back in from input_data.
+            scaler_cols = get_expected_columns(scaler, features)
+            combined_after_impute = input_imputed_df.copy()
+            for col in scaler_cols:
+                if col not in combined_after_impute.columns and col in input_data.columns:
+                    combined_after_impute[col] = input_data[col].values
+            input_for_scaler = align_columns(combined_after_impute, scaler_cols)
+
+            input_scaled = scaler.transform(input_for_scaler)
+            input_scaled_df = pd.DataFrame(input_scaled, columns=scaler_cols)
+
+            # Step 5: Align to whatever columns the MODEL expects.
+            model_cols = get_expected_columns(model, features)
+            for col in model_cols:
+                if col not in input_scaled_df.columns and col in input_data.columns:
+                    input_scaled_df[col] = input_data[col].values
+            input_for_model = align_columns(input_scaled_df, model_cols)
+
             # Step 6: Make prediction
-            prediction = model.predict(input_scaled_df)
-            probability = model.predict_proba(input_scaled_df)
-            
+            prediction = model.predict(input_for_model)
+            probability = model.predict_proba(input_for_model)
+
             # Store in session state
             st.session_state.prediction = prediction[0]
             st.session_state.probability = probability[0][1]
-            st.session_state.input_data = input_final
-            
+            st.session_state.input_data = input_data
+
             # Get feature importance
             if hasattr(model, 'feature_importances_'):
-                st.session_state.feature_importance = dict(zip(expected_features, model.feature_importances_))
+                st.session_state.feature_importance = dict(zip(model_cols, model.feature_importances_))
             elif hasattr(model, 'coef_'):
                 importance = np.abs(model.coef_[0])
-                st.session_state.feature_importance = dict(zip(expected_features, importance))
-            
+                st.session_state.feature_importance = dict(zip(model_cols, importance))
+
             # Show success message
             st.success("✅ Prediction completed successfully!")
-            
+
             # Auto-switch to results tab
             st.rerun()
-            
+
         except Exception as e:
             st.error(f"❌ Error making prediction: {str(e)}")
             st.info("Please ensure all input values are valid and try again.")
@@ -361,12 +401,12 @@ with tab2:
     if st.session_state.prediction is not None:
         pred = st.session_state.prediction
         prob = st.session_state.probability
-        
+
         st.markdown("---")
-        
+
         # Display risk score
         col1, col2, col3 = st.columns([1, 2, 1])
-        
+
         with col2:
             # Gauge chart
             fig = go.Figure(go.Indicator(
@@ -394,10 +434,10 @@ with tab2:
                     }
                 }
             ))
-            
+
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True)
-        
+
         # Risk classification
         if prob < 0.2:
             st.markdown(f'<div class="risk-low">✅ Low Risk - {prob*100:.1f}% Probability of CHD</div>', unsafe_allow_html=True)
@@ -408,7 +448,7 @@ with tab2:
         else:
             st.markdown(f'<div class="risk-high">🚨 High Risk - {prob*100:.1f}% Probability of CHD</div>', unsafe_allow_html=True)
             st.error("📌 Consult healthcare professional immediately")
-        
+
         # Additional metrics
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
@@ -418,11 +458,11 @@ with tab2:
             st.metric("Confidence Level", f"{max(prob, 1-prob)*100:.1f}%")
         with col3:
             st.metric("Risk Score", f"{prob*100:.1f}%")
-        
+
         # Disclaimer
         st.markdown("---")
         st.info("ℹ️ This prediction is based on statistical models and should not replace professional medical advice.")
-        
+
     else:
         st.info("👈 Enter patient details and click 'Predict Heart Disease Risk' to see results")
 
@@ -430,15 +470,15 @@ with tab2:
 with tab3:
     if st.session_state.prediction is not None:
         st.subheader("📊 Feature Contribution Analysis")
-        
-        if st.session_state.feature_importance:
+
+        if st.session_state.get('feature_importance'):
             # Sort features by importance
             importance_dict = st.session_state.feature_importance
             sorted_features = sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)
-            
+
             # Create dataframe for visualization
             importance_df = pd.DataFrame(sorted_features[:15], columns=['Feature', 'Importance'])
-            
+
             # Bar chart
             fig = px.bar(
                 importance_df,
@@ -455,17 +495,17 @@ with tab3:
                 yaxis_title="Feature"
             )
             st.plotly_chart(fig, use_container_width=True)
-        
+
         # Show input data
         with st.expander("📋 Patient Input Data (All Features)"):
             if 'input_data' in st.session_state:
                 st.dataframe(st.session_state.input_data)
-        
+
         # Recommendations based on risk
         st.subheader("💡 Recommendations")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("**Lifestyle Changes**")
             st.markdown("""
@@ -474,7 +514,7 @@ with tab3:
             - 🚭 Quit smoking
             - 🍷 Limit alcohol consumption
             """)
-        
+
         with col2:
             st.markdown("**Medical Considerations**")
             st.markdown("""
@@ -483,7 +523,7 @@ with tab3:
             - 📊 Monitor blood pressure
             - 🧪 Track cholesterol levels
             """)
-        
+
     else:
         st.info("👈 Please make a prediction first to see feature analysis")
 
@@ -491,10 +531,10 @@ with tab3:
 with tab4:
     st.markdown("""
     ## ℹ️ About This Application
-    
+
     ### 📚 Assignment Information
     """)
-    
+
     st.markdown("""
     <div class="assignment-box">
         <h3>🎓 IIT Jammu - Machine Learning Assignment</h3>
@@ -506,13 +546,13 @@ with tab4:
         <p><strong>Model Performance:</strong> Accuracy: ~0.85 | ROC-AUC: ~0.88</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     st.markdown("---")
-    
+
     st.markdown("""
     ### 👨‍💻 Developer Information
     """)
-    
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
@@ -526,12 +566,12 @@ with tab4:
             </p>
         </div>
         """.format(date=datetime.now().strftime("%B %d, %Y")), unsafe_allow_html=True)
-    
+
     st.markdown("---")
-    
+
     st.markdown("""
     ### 🔧 Technologies Used
-    
+
     | Category | Technologies |
     |----------|-------------|
     | **Programming** | Python 3.8+ |
@@ -540,13 +580,13 @@ with tab4:
     | **Visualization** | Plotly, Matplotlib, Seaborn |
     | **Data Processing** | Pandas, NumPy |
     | **Model Persistence** | Joblib |
-    
+
     ### 📊 Dataset Information
     - **Source:** Framingham Heart Study
     - **Samples:** 4,240
     - **Features:** 15 original + 4 derived
     - **Target:** 10-year CHD risk
-    
+
     ### 🎯 Model Performance
     - **Best Model:** {best_model}
     - **Accuracy:** {accuracy:.2%}
@@ -556,13 +596,13 @@ with tab4:
         accuracy=model_summary.get('test_accuracy', 0) if model_summary else 0,
         roc_auc=model_summary.get('test_roc_auc', 0) if model_summary else 0
     ))
-    
+
     st.markdown("---")
-    
+
     st.markdown("""
     ### 📝 Disclaimer
     ⚠️ This application is for **educational purposes** and should **not** be used as a substitute for professional medical advice, diagnosis, or treatment. Always consult with qualified healthcare providers for medical decisions.
-    
+
     ### 📧 Contact
     For questions or feedback regarding this assignment, please reach out via:
     - GitHub: [github.com/yourusername](https://github.com/yourusername)
@@ -574,8 +614,8 @@ st.markdown("""
 <div class="footer">
     <p>© 2026 IIT Jammu - Machine Learning Assignment Week-3 | Heart Disease Prediction Model</p>
     <p style="font-size: 0.8rem;">
-        <a href="https://github.com/yourusername" target="_blank">GitHub</a> | 
-        <a href="https://linkedin.com/in/yourusername" target="_blank">LinkedIn</a> | 
+        <a href="https://github.com/yourusername" target="_blank">GitHub</a> |
+        <a href="https://linkedin.com/in/yourusername" target="_blank">LinkedIn</a> |
         IIT Jammu
     </p>
 </div>
