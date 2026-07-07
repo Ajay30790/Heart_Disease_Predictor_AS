@@ -68,13 +68,6 @@ st.markdown("""
         text-align: center;
         font-size: 1.5rem;
     }
-    .info-box {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 5px solid #3498db;
-        margin: 1rem 0;
-    }
     .assignment-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1.5rem;
@@ -147,6 +140,7 @@ with st.sidebar:
         st.info(f"**Best Model:** {model_summary.get('best_model', 'N/A')}")
         st.info(f"**Accuracy:** {model_summary.get('test_accuracy', 0):.2%}")
         st.info(f"**ROC-AUC:** {model_summary.get('test_roc_auc', 0):.2%}")
+        st.info(f"**Features Used:** {model_summary.get('n_features', 0)}")
     
     st.markdown("---")
     st.header("📋 Instructions")
@@ -284,33 +278,13 @@ with tab1:
     with col_btn2:
         predict_button = st.button("🔬 Predict Heart Disease Risk", type="primary", use_container_width=True)
 
-# Function to preprocess data
-def preprocess_input(input_data, features):
-    """Preprocess input data to match model features"""
-    
-    # Create derived features
-    input_data['age_squared'] = input_data['age'] ** 2
-    input_data['bmi_age'] = input_data['BMI'] * input_data['age']
-    input_data['bp_ratio'] = input_data['sysBP'] / input_data['diaBP']
-    input_data['cholesterol_bp'] = input_data['totChol'] * input_data['sysBP']
-    
-    # Ensure all features are present
-    for feature in features:
-        if feature not in input_data.columns:
-            input_data[feature] = 0
-    
-    # Select only the features the model expects
-    input_data = input_data[features]
-    
-    return input_data
-
 # Prediction logic
 if predict_button:
     if model is None:
         st.error("❌ Model not loaded. Please train the model first.")
     else:
         try:
-            # Prepare input data with original features only
+            # Step 1: Create base DataFrame with original features
             input_data = pd.DataFrame({
                 'male': [male_val],
                 'age': [age],
@@ -329,31 +303,48 @@ if predict_button:
                 'glucose': [glucose]
             })
             
-            # Preprocess to get all features (including derived ones)
-            input_data_processed = preprocess_input(input_data, features)
+            # Step 2: Add derived features
+            input_data['age_squared'] = input_data['age'] ** 2
+            input_data['bmi_age'] = input_data['BMI'] * input_data['age']
+            input_data['bp_ratio'] = input_data['sysBP'] / input_data['diaBP']
+            input_data['cholesterol_bp'] = input_data['totChol'] * input_data['sysBP']
             
-            # Impute missing values (if any)
-            input_imputed = pd.DataFrame(imputer.transform(input_data_processed), columns=features)
+            # Step 3: Ensure all features are present and in correct order
+            # Get the expected feature order from the loaded feature names
+            expected_features = features  # This is the list from feature_names.pkl
             
-            # Scale features
-            input_scaled = pd.DataFrame(scaler.transform(input_imputed), columns=features)
+            # Create a new DataFrame with the correct feature order
+            input_final = pd.DataFrame()
+            for feature in expected_features:
+                if feature in input_data.columns:
+                    input_final[feature] = input_data[feature].values
+                else:
+                    # If any feature is missing, add it with 0
+                    input_final[feature] = 0
             
-            # Predict
-            prediction = model.predict(input_scaled)
-            probability = model.predict_proba(input_scaled)
+            # Step 4: Impute missing values (if any)
+            input_imputed = imputer.transform(input_final)
+            input_imputed_df = pd.DataFrame(input_imputed, columns=expected_features)
+            
+            # Step 5: Scale features
+            input_scaled = scaler.transform(input_imputed_df)
+            input_scaled_df = pd.DataFrame(input_scaled, columns=expected_features)
+            
+            # Step 6: Make prediction
+            prediction = model.predict(input_scaled_df)
+            probability = model.predict_proba(input_scaled_df)
             
             # Store in session state
             st.session_state.prediction = prediction[0]
             st.session_state.probability = probability[0][1]
-            st.session_state.input_data = input_data_processed
-            st.session_state.feature_importance = None
+            st.session_state.input_data = input_final
             
-            # Get feature importance for this prediction
+            # Get feature importance
             if hasattr(model, 'feature_importances_'):
-                st.session_state.feature_importance = dict(zip(features, model.feature_importances_))
+                st.session_state.feature_importance = dict(zip(expected_features, model.feature_importances_))
             elif hasattr(model, 'coef_'):
                 importance = np.abs(model.coef_[0])
-                st.session_state.feature_importance = dict(zip(features, importance))
+                st.session_state.feature_importance = dict(zip(expected_features, importance))
             
             # Show success message
             st.success("✅ Prediction completed successfully!")
