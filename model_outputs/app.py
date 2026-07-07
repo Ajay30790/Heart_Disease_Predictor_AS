@@ -656,8 +656,8 @@ with tab4:
 
     ### 📧 Contact
     For questions or feedback regarding this assignment, please reach out via:
-    - GitHub: [github.com/yourusername](https://github.com/asdharupur1-boop)
-    - LinkedIn: [linkedin.com/in/yourusername](https://www.linkedin.com/in/ayush-shukla-ds/)
+    - GitHub: [github.com/asdharupur1-boop](https://github.com/asdharupur1-boop)
+    - LinkedIn: [linkedin.com/in/ayush-shukla-ds/](https://www.linkedin.com/in/ayush-shukla-ds/)
     """)
 
 # Footer
