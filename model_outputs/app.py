@@ -163,6 +163,59 @@ def align_columns(df, expected_cols):
     return aligned
 
 
+def safe_impute(df, imputer, expected_cols):
+    """
+    Impute missing values, tolerating scikit-learn version mismatches.
+
+    A pickled SimpleImputer saved with one sklearn version can be missing
+    (or have extra) private attributes when loaded under a different
+    installed version - e.g. '_fill_dtype' not found. The public,
+    version-stable output of a fitted SimpleImputer is `.statistics_`
+    (the per-column fill value it learned), so if `.transform()` throws
+    an internal AttributeError we fall back to applying that manually.
+    """
+    try:
+        result = imputer.transform(df)
+        return pd.DataFrame(result, columns=expected_cols, index=df.index)
+    except AttributeError as e:
+        st.warning(
+            f"⚠️ Imputer version mismatch detected ({e}). "
+            "Falling back to manual imputation using stored statistics."
+        )
+        filled = df.copy()
+        stats = getattr(imputer, 'statistics_', None)
+        if stats is not None and len(stats) == len(expected_cols):
+            for col, fill_value in zip(expected_cols, stats):
+                filled[col] = filled[col].fillna(fill_value)
+        else:
+            filled = filled.fillna(0)
+        return filled
+
+
+def safe_scale(df, scaler, expected_cols):
+    """
+    Scale features, tolerating scikit-learn version mismatches.
+
+    Falls back to manually applying (x - mean_) / scale_ using the
+    scaler's public, version-stable learned attributes if `.transform()`
+    raises an internal AttributeError.
+    """
+    try:
+        result = scaler.transform(df)
+        return pd.DataFrame(result, columns=expected_cols, index=df.index)
+    except AttributeError as e:
+        st.warning(
+            f"⚠️ Scaler version mismatch detected ({e}). "
+            "Falling back to manual scaling using stored mean/scale."
+        )
+        mean_ = getattr(scaler, 'mean_', None)
+        scale_ = getattr(scaler, 'scale_', None)
+        if mean_ is not None and scale_ is not None and len(mean_) == len(expected_cols):
+            scaled_values = (df.values - mean_) / scale_
+            return pd.DataFrame(scaled_values, columns=expected_cols, index=df.index)
+        return df
+
+
 # Sidebar
 with st.sidebar:
     st.header("📊 Model Information")
@@ -347,8 +400,7 @@ if predict_button:
             imputer_cols = get_expected_columns(imputer, features)
             input_for_imputer = align_columns(input_data, imputer_cols)
 
-            input_imputed = imputer.transform(input_for_imputer)
-            input_imputed_df = pd.DataFrame(input_imputed, columns=imputer_cols)
+            input_imputed_df = safe_impute(input_for_imputer, imputer, imputer_cols)
 
             # Step 4: Align to whatever columns the SCALER expects. If the
             # scaler was fit after engineered features were added, pull
@@ -360,8 +412,7 @@ if predict_button:
                     combined_after_impute[col] = input_data[col].values
             input_for_scaler = align_columns(combined_after_impute, scaler_cols)
 
-            input_scaled = scaler.transform(input_for_scaler)
-            input_scaled_df = pd.DataFrame(input_scaled, columns=scaler_cols)
+            input_scaled_df = safe_scale(input_for_scaler, scaler, scaler_cols)
 
             # Step 5: Align to whatever columns the MODEL expects.
             model_cols = get_expected_columns(model, features)
