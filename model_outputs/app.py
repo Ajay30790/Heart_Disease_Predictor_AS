@@ -12,9 +12,9 @@ import os
 import json
 import plotly.graph_objects as go
 import plotly.express as px
-from PIL import Image
-import base64
 from datetime import datetime
+import warnings
+warnings.filterwarnings('ignore')
 
 # Page configuration
 st.set_page_config(
@@ -74,47 +74,6 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #3498db;
         margin: 1rem 0;
-    }
-    .feature-box {
-        background-color: #e8f4f8;
-        padding: 0.5rem;
-        border-radius: 5px;
-        margin: 0.2rem 0;
-    }
-    .social-links {
-        display: flex;
-        justify-content: center;
-        gap: 2rem;
-        padding: 1rem;
-        background: #f8f9fa;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    .social-btn {
-        display: inline-block;
-        padding: 0.5rem 1.5rem;
-        border-radius: 25px;
-        text-decoration: none;
-        font-weight: bold;
-        transition: all 0.3s ease;
-    }
-    .github-btn {
-        background-color: #24292e;
-        color: white;
-    }
-    .github-btn:hover {
-        background-color: #2d3748;
-        transform: scale(1.05);
-        color: white;
-    }
-    .linkedin-btn {
-        background-color: #0077b5;
-        color: white;
-    }
-    .linkedin-btn:hover {
-        background-color: #0088cc;
-        transform: scale(1.05);
-        color: white;
     }
     .assignment-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -221,7 +180,7 @@ with st.sidebar:
     
     with col1:
         st.markdown("""
-        <a href="https://github.com/asdharupur1-boop" target="_blank" style="text-decoration: none;">
+        <a href="https://github.com/yourusername" target="_blank" style="text-decoration: none;">
             <div style="background: #24292e; padding: 0.5rem; border-radius: 5px; text-align: center; color: white;">
                 <b>🐙 GitHub</b>
             </div>
@@ -230,12 +189,27 @@ with st.sidebar:
     
     with col2:
         st.markdown("""
-        <a href="https://www.linkedin.com/in/ayush-shukla-ds/" target="_blank" style="text-decoration: none;">
+        <a href="https://linkedin.com/in/yourusername" target="_blank" style="text-decoration: none;">
             <div style="background: #0077b5; padding: 0.5rem; border-radius: 5px; text-align: center; color: white;">
                 <b>🔗 LinkedIn</b>
             </div>
         </a>
         """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Health tips
+    tips = [
+        "💡 Maintain a healthy weight to reduce heart disease risk",
+        "💡 Regular physical activity strengthens your heart",
+        "💡 A balanced diet rich in fruits and vegetables is heart-healthy",
+        "💡 Manage stress through meditation or yoga",
+        "💡 Get adequate sleep (7-8 hours) for heart health",
+        "💡 Monitor your blood pressure regularly",
+        "💡 Know your family history of heart disease"
+    ]
+    st.markdown("💡 **Health Tip:**")
+    st.info(np.random.choice(tips))
     
     st.markdown("---")
     st.caption("Made with ❤️ for IIT Jammu Assignment")
@@ -310,13 +284,33 @@ with tab1:
     with col_btn2:
         predict_button = st.button("🔬 Predict Heart Disease Risk", type="primary", use_container_width=True)
 
+# Function to preprocess data
+def preprocess_input(input_data, features):
+    """Preprocess input data to match model features"""
+    
+    # Create derived features
+    input_data['age_squared'] = input_data['age'] ** 2
+    input_data['bmi_age'] = input_data['BMI'] * input_data['age']
+    input_data['bp_ratio'] = input_data['sysBP'] / input_data['diaBP']
+    input_data['cholesterol_bp'] = input_data['totChol'] * input_data['sysBP']
+    
+    # Ensure all features are present
+    for feature in features:
+        if feature not in input_data.columns:
+            input_data[feature] = 0
+    
+    # Select only the features the model expects
+    input_data = input_data[features]
+    
+    return input_data
+
 # Prediction logic
 if predict_button:
     if model is None:
         st.error("❌ Model not loaded. Please train the model first.")
     else:
         try:
-            # Prepare input data
+            # Prepare input data with original features only
             input_data = pd.DataFrame({
                 'male': [male_val],
                 'age': [age],
@@ -335,21 +329,13 @@ if predict_button:
                 'glucose': [glucose]
             })
             
-            # Create derived features
-            input_data['age_squared'] = input_data['age'] ** 2
-            input_data['bmi_age'] = input_data['BMI'] * input_data['age']
-            input_data['bp_ratio'] = input_data['sysBP'] / input_data['diaBP']
-            input_data['cholesterol_bp'] = input_data['totChol'] * input_data['sysBP']
+            # Preprocess to get all features (including derived ones)
+            input_data_processed = preprocess_input(input_data, features)
             
-            # Ensure all features are present
-            for feature in features:
-                if feature not in input_data.columns:
-                    input_data[feature] = 0
+            # Impute missing values (if any)
+            input_imputed = pd.DataFrame(imputer.transform(input_data_processed), columns=features)
             
-            input_data = input_data[features]
-            
-            # Impute and scale
-            input_imputed = pd.DataFrame(imputer.transform(input_data), columns=features)
+            # Scale features
             input_scaled = pd.DataFrame(scaler.transform(input_imputed), columns=features)
             
             # Predict
@@ -359,7 +345,7 @@ if predict_button:
             # Store in session state
             st.session_state.prediction = prediction[0]
             st.session_state.probability = probability[0][1]
-            st.session_state.input_data = input_data
+            st.session_state.input_data = input_data_processed
             st.session_state.feature_importance = None
             
             # Get feature importance for this prediction
@@ -369,11 +355,15 @@ if predict_button:
                 importance = np.abs(model.coef_[0])
                 st.session_state.feature_importance = dict(zip(features, importance))
             
+            # Show success message
+            st.success("✅ Prediction completed successfully!")
+            
             # Auto-switch to results tab
             st.rerun()
             
         except Exception as e:
             st.error(f"❌ Error making prediction: {str(e)}")
+            st.info("Please ensure all input values are valid and try again.")
 
 # Results tab
 with tab2:
@@ -466,13 +456,17 @@ with tab3:
                 orientation='h',
                 title='Top 15 Feature Contributions',
                 color='Importance',
-                color_continuous_scale='Viridis'
+                color_continuous_scale='Viridis',
+                height=500
             )
-            fig.update_layout(height=500)
+            fig.update_layout(
+                xaxis_title="Importance Score",
+                yaxis_title="Feature"
+            )
             st.plotly_chart(fig, use_container_width=True)
         
         # Show input data
-        with st.expander("📋 Patient Input Data"):
+        with st.expander("📋 Patient Input Data (All Features)"):
             if 'input_data' in st.session_state:
                 st.dataframe(st.session_state.input_data)
         
@@ -528,19 +522,6 @@ with tab4:
     ### 👨‍💻 Developer Information
     """)
     
-    # Social links section
-    st.markdown("""
-    <div class="social-links">
-        <a href="https://github.com/asdharupu1-boop" target="_blank" class="social-btn github-btn">
-            🐙 GitHub
-        </a>
-        <a href="https://www.linkedin.com/in/ayush-shukla-ds/" target="_blank" class="social-btn linkedin-btn">
-            🔗 LinkedIn
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Or use columns for better control
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
@@ -593,8 +574,8 @@ with tab4:
     
     ### 📧 Contact
     For questions or feedback regarding this assignment, please reach out via:
-    - GitHub: [github.com/yourusername](https://github.com/asdharupu1-boop)
-    - LinkedIn: [linkedin.com/in/yourusername](https://www.linkedin.com/in/ayush-shukla-ds/)
+    - GitHub: [github.com/yourusername](https://github.com/yourusername)
+    - LinkedIn: [linkedin.com/in/yourusername](https://linkedin.com/in/yourusername)
     """)
 
 # Footer
@@ -602,24 +583,9 @@ st.markdown("""
 <div class="footer">
     <p>© 2026 IIT Jammu - Machine Learning Assignment Week-3 | Heart Disease Prediction Model</p>
     <p style="font-size: 0.8rem;">
-        <a href="https://github.com/asdharupur1-boop/Heart_Disease_Predictor" target="_blank">GitHub</a> | 
-        <a href="https://www.linkedin.com/in/ayush-shukla-ds/" target="_blank">LinkedIn</a> | 
+        <a href="https://github.com/yourusername" target="_blank">GitHub</a> | 
+        <a href="https://linkedin.com/in/yourusername" target="_blank">LinkedIn</a> | 
         IIT Jammu
     </p>
 </div>
 """, unsafe_allow_html=True)
-
-# Health tips (random)
-tips = [
-    "💡 Maintain a healthy weight to reduce heart disease risk",
-    "💡 Regular physical activity strengthens your heart",
-    "💡 A balanced diet rich in fruits and vegetables is heart-healthy",
-    "💡 Manage stress through meditation or yoga",
-    "💡 Get adequate sleep (7-8 hours) for heart health",
-    "💡 Monitor your blood pressure regularly",
-    "💡 Know your family history of heart disease"
-]
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("💡 **Health Tip:**")
-st.sidebar.info(np.random.choice(tips))
