@@ -258,7 +258,7 @@ with st.sidebar:
 
     with col1:
         st.markdown("""
-        <a href="https://github.com/yourusername" target="_blank" style="text-decoration: none;">
+        <a href="https://github.com/asdharupur1-boop" target="_blank" style="text-decoration: none;">
             <div style="background: #24292e; padding: 0.5rem; border-radius: 5px; text-align: center; color: white;">
                 <b>🐙 GitHub</b>
             </div>
@@ -267,7 +267,7 @@ with st.sidebar:
 
     with col2:
         st.markdown("""
-        <a href="https://linkedin.com/in/yourusername" target="_blank" style="text-decoration: none;">
+        <a href="https://www.linkedin.com/in/ayush-shukla-ds/" target="_blank" style="text-decoration: none;">
             <div style="background: #0077b5; padding: 0.5rem; border-radius: 5px; text-align: center; color: white;">
                 <b>🔗 LinkedIn</b>
             </div>
@@ -609,7 +609,7 @@ with tab4:
         st.markdown("""
         <div style="text-align: center;">
             <p style="font-size: 1.1rem;">
-                <b>Student:</b> [Your Name]<br>
+                <b>Student:</b> [Ayush Shukla]<br>
                 <b>Course:</b> Machine Learning<br>
                 <b>Institution:</b> IIT Jammu<br>
                 <b>Assignment:</b> Week-3<br>
@@ -656,8 +656,8 @@ with tab4:
 
     ### 📧 Contact
     For questions or feedback regarding this assignment, please reach out via:
-    - GitHub: [github.com/yourusername](https://github.com/yourusername)
-    - LinkedIn: [linkedin.com/in/yourusername](https://linkedin.com/in/yourusername)
+    - GitHub: [github.com/yourusername](https://github.com/asdharupur1-boop)
+    - LinkedIn: [linkedin.com/in/yourusername](https://www.linkedin.com/in/ayush-shukla-ds/)
     """)
 
 # Footer
@@ -665,8 +665,8 @@ st.markdown("""
 <div class="footer">
     <p>© 2026 IIT Jammu - Machine Learning Assignment Week-3 | Heart Disease Prediction Model</p>
     <p style="font-size: 0.8rem;">
-        <a href="https://github.com/yourusername" target="_blank">GitHub</a> |
-        <a href="https://linkedin.com/in/yourusername" target="_blank">LinkedIn</a> |
+        <a href="https://github.com/asdharupur1-boop" target="_blank">GitHub</a> |
+        <a href="https://www.linkedin.com/in/ayush-shukla-ds/" target="_blank">LinkedIn</a> |
         IIT Jammu
     </p>
 </div>
